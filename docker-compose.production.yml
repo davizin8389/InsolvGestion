@@ -1,0 +1,71 @@
+services:
+  database:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+
+  migrations:
+    build:
+      context: .
+    restart: "no"
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      SEED_DEMO: "false"
+      APP_URL: ${APP_URL:?Set APP_URL to the public HTTPS origin}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:?Set POSTGRES_DB}?schema=public
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:?Set POSTGRES_APP_USER}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD}
+      SKIP_ENTRYPOINT_MIGRATIONS: "true"
+    command: ["sh", "-c", "./node_modules/.bin/tsx scripts/check-env.ts && ./node_modules/.bin/tsx scripts/provision-app-db-role.ts && ./node_modules/.bin/prisma migrate deploy"]
+    depends_on:
+      database:
+        condition: service_healthy
+
+  app:
+    env_file: !override []
+    environment:
+      NODE_ENV: production
+      SEED_DEMO: "false"
+      APP_URL: ${APP_URL:?Set APP_URL to the public HTTPS origin}
+      DATABASE_URL: postgresql://${POSTGRES_APP_USER:?Set POSTGRES_APP_USER}:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD}@database:5432/${POSTGRES_DB:?Set POSTGRES_DB}?schema=public
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-insolv_session}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
+      DATA_DIR: /app/.data/private-documents
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
+      TIME_ZONE: ${TIME_ZONE:-America/Bogota}
+      REMINDER_DAYS_BEFORE: ${REMINDER_DAYS_BEFORE:-2}
+      CRON_SECRET: ${CRON_SECRET:?Set CRON_SECRET}
+      AI_PROVIDER: ${AI_PROVIDER:-simulated}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_GENERATIONS_PER_HOUR: ${AI_GENERATIONS_PER_HOUR:-20}
+      RUN_REMINDER_SCHEDULER: ${RUN_REMINDER_SCHEDULER:-true}
+      SKIP_ENTRYPOINT_MIGRATIONS: "true"
+    command: ["./node_modules/.bin/next", "start"]
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+
+  admin-bootstrap:
+    profiles: ["bootstrap"]
+    build:
+      context: .
+    restart: "no"
+    env_file: !override []
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_APP_USER:?Set POSTGRES_APP_USER}:${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD}@database:5432/${POSTGRES_DB:?Set POSTGRES_DB}?schema=public
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      SKIP_ENTRYPOINT_MIGRATIONS: "true"
+    command: ["./node_modules/.bin/tsx", "scripts/bootstrap-admin.ts"]
+    depends_on:
+      app:
+        condition: service_healthy

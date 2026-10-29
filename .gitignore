@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+.compose-audit.yml
+.data/
+/backups/
+src/generated/prisma/
+playwright-report/
+test-results/
+.ppi-source-extract.tmp.txt
+.ppi-media.tmp/
+.ppi-render/
+*.log
+*.tsbuildinfo

@@ -1,0 +1,17 @@
+services:
+  database:
+    ports: !override []
+  app:
+    environment:
+      NODE_ENV: production
+      SEED_DEMO: "false"
+      APP_URL: http://localhost:3000
+      AI_GENERATIONS_PER_HOUR: "2"
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?Set DEMO_PASSWORD}
+      E2E_CONFIRM_ISOLATED_DATABASE: "1"
+      E2E_DATABASE_URL: postgresql://${POSTGRES_USER:-insolv}:${POSTGRES_PASSWORD:-insolv_local_only}@database:5432/${POSTGRES_DB:-insolvgestion_audit}?schema=public
+    command: ["./node_modules/.bin/next", "start"]
+  migrations:
+    environment:
+      NODE_ENV: development
+      APP_URL: http://localhost:3000

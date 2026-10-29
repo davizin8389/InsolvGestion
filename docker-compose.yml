@@ -1,0 +1,45 @@
+services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-insolv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-insolv_local_only}
+      POSTGRES_DB: ${POSTGRES_DB:-insolvgestion_demo}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build:
+      context: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-insolv}:${POSTGRES_PASSWORD:-insolv_local_only}@database:5432/${POSTGRES_DB:-insolvgestion_demo}?schema=public
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      DATA_DIR: /app/.data/private-documents
+      RUN_REMINDER_SCHEDULER: ${RUN_REMINDER_SCHEDULER:-true}
+    command: ["./node_modules/.bin/next", "dev", "--hostname", "0.0.0.0"]
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - private_documents:/app/.data/private-documents
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+volumes:
+  postgres_data:
+  private_documents:
